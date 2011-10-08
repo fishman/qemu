@@ -35,6 +35,7 @@ void qemu_set_irq(qemu_irq irq, int level)
     if (!irq)
         return;
 
+//printf("IRQ set %#hhx = %#hhd using %p\n", irq->n, level, irq->handler);
     irq->handler(irq->opaque, irq->n, level);
 }
 
