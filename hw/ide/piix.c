@@ -149,6 +149,29 @@ static int pci_piix_ide_initfn(PCIDevice *dev)
     return 0;
 }
 
+static int pci_ich6_ide_initfn(PCIDevice *dev)
+{
+    uint8_t *pci_conf;
+    PCIIDEState *d = DO_UPCAST(PCIIDEState, dev, dev);
+
+    pci_config_set_vendor_id(d->dev.config, PCI_VENDOR_ID_INTEL);
+    pci_config_set_device_id(d->dev.config, PCI_DEVICE_ID_INTEL_ICH6);
+
+    pci_conf = d->dev.config;
+
+    pci_conf[0x09] = 0x80; // legacy ATA mode
+    pci_conf[0x0a] = 0x01; // class_sub = PCI_IDE
+    pci_conf[0x0b] = 0x01; // class_base = PCI_mass_storage
+    pci_conf[0x0e] = 0x00; // header_type
+
+    pci_conf[0x40] = 0;
+    pci_conf[0x41] = 0xf0; // primary port enabled
+    pci_conf[0x42] = 0;
+    pci_conf[0x43] = 0x00; // secondary port disabled
+
+    return pci_piix_ide_initfn(d);
+}
+
 /* hd_table must contain 4 block drivers */
 /* NOTE: for the PIIX3, the IRQs and IOports are hardcoded */
 PCIDevice *pci_piix3_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
@@ -171,6 +194,16 @@ PCIDevice *pci_piix4_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
     return dev;
 }
 
+/* hd_table must contain 4 block drivers */
+/* NOTE: for the ICH6, the IRQs and IOports are hardcoded */
+void pci_ich6_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
+{
+    PCIDevice *dev;
+
+    dev = pci_create_simple(bus, devfn, "ICH6 IDE");
+    pci_ide_create_devs(dev, hd_table);
+}
+
 static PCIDeviceInfo piix_ide_info[] = {
     {
         .qdev.name    = "piix3-ide",
@@ -190,6 +223,11 @@ static PCIDeviceInfo piix_ide_info[] = {
         .vendor_id    = PCI_VENDOR_ID_INTEL,
         .device_id    = PCI_DEVICE_ID_INTEL_82371AB,
         .class_id     = PCI_CLASS_STORAGE_IDE,
+    },{
+        .qdev.name    = "ICH6 IDE",
+        .qdev.size    = sizeof(PCIIDEState),
+        .qdev.no_user = 1,
+        .init         = pci_ich6_ide_initfn,
     },{
         /* end of list */
     }
