@@ -45,7 +45,7 @@
 #define APPLESMC_GET_KEY_BY_INDEX_CMD	0x12
 #define APPLESMC_GET_KEY_TYPE_CMD	0x13
 
-static char osk[64] = "This is a dummy key. Enter the real key using the -osk parameter";
+static char osk[64] = "ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc";
 
 struct AppleSMCData {
     uint8_t len;
