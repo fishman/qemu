@@ -30,6 +30,7 @@
 
 #include "hw.h"
 #include "pci.h"
+#include "pc.h"
 #include "console.h"
 #include "qemu-timer.h"
 

@@ -31,7 +31,7 @@
 
 #define RCBA_BASE		0xFED1C000
 
-void hpet_init(qemu_irq irq);
+/* void hpet_init(qemu_irq irq); */
 
 static uint32_t rcba_ram_readl(void *opaque, target_phys_addr_t addr)
 {
@@ -150,7 +150,7 @@ void lpc_init(PCIBus *bus, int devfn, qemu_irq *pic) {
     pci_conf[0xae] = 0x00;
 
 // XXX hpet goes via apic
-    hpet_init(pic);
+    /* hpet_init(pic); */
 
 #if 0
     register_ioport_read(0x1000, 128, 1, pmbase_readb, d);
