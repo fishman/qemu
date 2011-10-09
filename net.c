@@ -856,6 +856,7 @@ static int net_init_nic(QemuOpts *opts,
     }
 
     nd->used = 1;
+    nd->link = Link_default;
     nb_nics++;
 
     return idx;
