@@ -152,8 +152,12 @@ static void pc_init1(ram_addr_t ram_size,
 
         if (!(model > MODEL_ISA) || (nd->model && strcmp(nd->model, "ne2k_isa") == 0))
             pc_init_ne2k_isa(nd);
-        else
+        } else if (model == MODEL_MAC) {
+            nd->link = Link_10mbps;
+             pci_nic_init_nofail(nd, "rtl8139", NULL);
+        } else {
             pci_nic_init_nofail(nd, "e1000", NULL);
+        }
     }
 
     ide_drive_get(hd, MAX_IDE_BUS);

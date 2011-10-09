@@ -430,6 +430,9 @@ static void RTL8139TallyCounters_clear(RTL8139TallyCounters* counters);
 /* Writes tally counters to specified physical memory address */
 static void RTL8139TallyCounters_physical_memory_write(target_phys_addr_t tc_addr, RTL8139TallyCounters* counters);
 
+static uint32_t rtl8139_io_readb(void *opaque, uint8_t addr);
+static uint32_t rtl8139_io_readw(void *opaque, uint8_t addr);
+
 typedef struct RTL8139State {
     PCIDevice dev;
     uint8_t phys[8]; /* mac address */
@@ -471,6 +474,7 @@ typedef struct RTL8139State {
 
     uint16_t CpCmd;
     uint8_t  TxThresh;
+    enum NICLink link;
 
     NICState *nic;
     NICConf conf;
@@ -1258,7 +1262,7 @@ static void rtl8139_reset(DeviceState *d)
     s->Config0 = 0x0; /* No boot ROM */
     s->Config1 = 0xC; /* IO mapped and MEM mapped registers available */
     s->Config3 = 0x1; /* fast back-to-back compatible */
-    s->Config5 = 0x0;
+    s->Config5 = Cfg5_LDPS;
 
     s->CSCR = CSCR_F_LINK_100 | CSCR_HEART_BIT | CSCR_LD;
 
@@ -1283,6 +1287,13 @@ static void rtl8139_reset(DeviceState *d)
     s->TCTR = 0;
     s->TimerInt = 0;
     s->TCTR_base = 0;
+
+    s->eeprom.contents[10] = s->Config0 | s->Config1 << 8;
+    s->eeprom.contents[6] = (rtl8139_io_readb(s, MediaStatus) & 0xc0) | ((rtl8139_io_readw(s, BasicModeCtrl) >> 8) & 0x23)
+                          | (s->Config3 << 8);
+    s->eeprom.contents[12] = s->Config4 << 8;
+
+    s->eeprom.contents[15] = s->Config5 << 8;
 
     /* reset tally counters */
     RTL8139TallyCounters_clear(&s->tally_counters);
@@ -3001,7 +3012,7 @@ static uint32_t rtl8139_io_readb(void *opaque, uint8_t addr)
             break;
 
         case MediaStatus:
-            ret = 0xd0;
+            ret = 0xd0 | ((s->link == Link_10mbps) << 3);
             DPRINTF("MediaStatus read 0x%x\n", ret);
             break;
 
@@ -3484,6 +3495,16 @@ static int pci_rtl8139_init(PCIDevice *dev)
     s->eeprom.contents[7] = s->conf.macaddr.a[0] | s->conf.macaddr.a[1] << 8;
     s->eeprom.contents[8] = s->conf.macaddr.a[2] | s->conf.macaddr.a[3] << 8;
     s->eeprom.contents[9] = s->conf.macaddr.a[4] | s->conf.macaddr.a[5] << 8;
+
+     switch(s->conf.link) {
+         case Link_10mbps:
+         case Link_100mbps:
+             s->link = s->conf.link;
+             break;
+         default:
+             s->link = Link_100mbps;
+             break;
+     }
 
     s->nic = qemu_new_nic(&net_rtl8139_info, &s->conf,
                           dev->qdev.info->name, dev->qdev.id, s);

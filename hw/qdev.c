@@ -374,6 +374,7 @@ void qdev_init_nofail(DeviceState *dev)
         error_report("Initialization of device %s failed", info->name);
         exit(1);
     }
+    qdev_prop_set_uint32(dev, "link", nd->link);
 }
 
 /* Unlink device from bus and free the structure.  */

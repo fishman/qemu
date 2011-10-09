@@ -13,16 +13,25 @@ struct MACAddr {
 
 /* qdev nic properties */
 
+enum NICLink {
+    Link_default,
+    Link_10mbps,
+    Link_100mbps,
+    Link_1000mbps,
+};
+
 typedef struct NICConf {
     MACAddr macaddr;
     VLANState *vlan;
     VLANClientState *peer;
+    uint32_t link;
     int32_t bootindex;
 } NICConf;
 
 #define DEFINE_NIC_PROPERTIES(_state, _conf)                            \
     DEFINE_PROP_MACADDR("mac",   _state, _conf.macaddr),                \
     DEFINE_PROP_VLAN("vlan",     _state, _conf.vlan),                   \
+    DEFINE_PROP_UINT32("link",     _state, _conf.link, Link_default),   \
     DEFINE_PROP_NETDEV("netdev", _state, _conf.peer),                   \
     DEFINE_PROP_INT32("bootindex", _state, _conf.bootindex, -1)
 
