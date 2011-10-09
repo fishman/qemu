@@ -98,6 +98,12 @@ void isa_irq_handler(void *opaque, int n, int level)
         qemu_set_irq(isa->ioapic[n], level);
 };
 
+enum pc_model {
+    MODEL_ISA = 0,
+    MODEL_PCI = 1,
+    MODEL_MAC = 2
+};
+
 static void ioport80_write(void *opaque, uint32_t addr, uint32_t data)
 {
 }
@@ -945,11 +951,15 @@ void pc_cpus_init(const char *cpu_model)
 
     /* init CPUs */
     if (cpu_model == NULL) {
+        if(model == MODEL_MAC) {
+            cpu_model = "coreduo,vendor=GenuineIntel";
+        } else {
 #ifdef TARGET_X86_64
-        cpu_model = "qemu64";
+            cpu_model = "qemu64";
 #else
-        cpu_model = "qemu32";
+            cpu_model = "qemu32";
 #endif
+        }
     }
 
     for(i = 0; i < smp_cpus; i++) {
@@ -984,8 +994,16 @@ void pc_memory_init(const char *kernel_filename,
     }
 
     /* BIOS load */
-    if (bios_name == NULL)
-        bios_name = BIOS_FILENAME;
+    if (bios_name == NULL) {
+        switch(model) {
+            case MODEL_MAC:
+                bios_name = "bios-mac.bin";
+                break;
+            default:
+                bios_name = BIOS_FILENAME;
+                break;
+        }
+    }
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
     if (filename) {
         bios_size = get_image_size(filename);

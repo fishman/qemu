@@ -72,7 +72,7 @@ static void pc_init1(ram_addr_t ram_size,
                      const char *kernel_cmdline,
                      const char *initrd_filename,
                      const char *cpu_model,
-                     int pci_enabled,
+                     int model,
                      int kvmclock_enabled)
 {
     int i;
@@ -118,23 +118,27 @@ static void pc_init1(ram_addr_t ram_size,
     }
     isa_irq_state = qemu_mallocz(sizeof(*isa_irq_state));
     isa_irq_state->i8259 = i8259;
-    if (pci_enabled) {
+    if (model > MODEL_ISA) {
         ioapic_init(isa_irq_state);
     }
     isa_irq = qemu_allocate_irqs(isa_irq_handler, isa_irq_state, 24);
 
-    if (pci_enabled) {
+    if (model > MODEL_ISA) {
         pci_bus = i440fx_init(&i440fx_state, &piix3_devfn, isa_irq, ram_size);
     } else {
         pci_bus = NULL;
         i440fx_state = NULL;
         isa_bus_new(NULL);
     }
+    if (model == MODEL_MAC) {
+        applesmc_init();
+        lpc_init(pci_bus, piix3_devfn, i8259);
+    }
     isa_bus_irqs(isa_irq);
 
     pc_register_ferr_irq(isa_get_irq(13));
 
-    pc_vga_init(pci_enabled? pci_bus: NULL);
+    pc_vga_init((model >= MODEL_PCI) ? pci_bus: NULL);
 
     if (xen_enabled()) {
         pci_create_simple(pci_bus, -1, "xen-platform");
@@ -146,16 +150,19 @@ static void pc_init1(ram_addr_t ram_size,
     for(i = 0; i < nb_nics; i++) {
         NICInfo *nd = &nd_table[i];
 
-        if (!pci_enabled || (nd->model && strcmp(nd->model, "ne2k_isa") == 0))
+        if (!(model > MODEL_ISA) || (nd->model && strcmp(nd->model, "ne2k_isa") == 0))
             pc_init_ne2k_isa(nd);
         else
             pci_nic_init_nofail(nd, "e1000", NULL);
     }
 
     ide_drive_get(hd, MAX_IDE_BUS);
-    if (pci_enabled) {
+    if (model > MODEL_ISA) {
         PCIDevice *dev;
-        dev = pci_piix3_ide_init(pci_bus, hd, piix3_devfn + 1);
+        if (model == MODEL_MAC)
+            dev = pci_ich6_ide_init(pci_bus, hd, piix3_devfn + 1);
+        else
+            dev = pci_piix3_ide_init(pci_bus, hd, piix3_devfn + 1);
         idebus[0] = qdev_get_child_bus(&dev->qdev, "ide.0");
         idebus[1] = qdev_get_child_bus(&dev->qdev, "ide.1");
     } else {
@@ -167,16 +174,16 @@ static void pc_init1(ram_addr_t ram_size,
         }
     }
 
-    audio_init(isa_irq, pci_enabled ? pci_bus : NULL);
+    audio_init(isa_irq, (model > MODEL_ISA) ? pci_bus : NULL);
 
     pc_cmos_init(below_4g_mem_size, above_4g_mem_size, boot_device,
                  idebus[0], idebus[1], rtc_state);
 
-    if (pci_enabled && usb_enabled) {
+    if ((model > MODEL_ISA) && usb_enabled) {
         usb_uhci_piix3_init(pci_bus, piix3_devfn + 2);
     }
 
-    if (pci_enabled && acpi_enabled) {
+    if ((model > MODEL_ISA) && acpi_enabled) {
         i2c_bus *smbus;
 
         if (!xen_enabled()) {
@@ -196,9 +203,21 @@ static void pc_init1(ram_addr_t ram_size,
         i440fx_init_memory_mappings(i440fx_state);
     }
 
-    if (pci_enabled) {
+    if (model > MODEL_ISA) {
         pc_pci_device_init(pci_bus);
     }
+}
+
+static void pc_init_mac(ram_addr_t ram_size,
+                        const char *boot_device,
+                        const char *kernel_filename,
+                        const char *kernel_cmdline,
+                        const char *initrd_filename,
+                        const char *cpu_model)
+{
+    pc_init1(ram_size, boot_device,
+             kernel_filename, kernel_cmdline,
+             initrd_filename, cpu_model, MODEL_MAC, 1);
 }
 
 static void pc_init_pci(ram_addr_t ram_size,
@@ -210,7 +229,7 @@ static void pc_init_pci(ram_addr_t ram_size,
 {
     pc_init1(ram_size, boot_device,
              kernel_filename, kernel_cmdline,
-             initrd_filename, cpu_model, 1, 1);
+             initrd_filename, cpu_model, MODEL_PCI, 1);
 }
 
 static void pc_init_pci_no_kvmclock(ram_addr_t ram_size,
@@ -222,7 +241,7 @@ static void pc_init_pci_no_kvmclock(ram_addr_t ram_size,
 {
     pc_init1(ram_size, boot_device,
              kernel_filename, kernel_cmdline,
-             initrd_filename, cpu_model, 1, 0);
+             initrd_filename, cpu_model, MODEL_ISA, 0);
 }
 
 static void pc_init_isa(ram_addr_t ram_size,
@@ -479,6 +498,13 @@ static QEMUMachine xenfv_machine = {
 };
 #endif
 
+static QEMUMachine mac_machine = {
+    .name = "mac",
+    .desc = "Intel-Mac",
+    .init = pc_init_mac,
+    .max_cpus = 255,
+};
+
 static void pc_machine_init(void)
 {
     qemu_register_machine(&pc_machine);
@@ -487,6 +513,7 @@ static void pc_machine_init(void)
     qemu_register_machine(&pc_machine_v0_11);
     qemu_register_machine(&pc_machine_v0_10);
     qemu_register_machine(&isapc_machine);
+    qemu_register_machine(&mac_machine);
 #ifdef CONFIG_XEN
     qemu_register_machine(&xenfv_machine);
 #endif
