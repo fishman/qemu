@@ -1030,6 +1030,14 @@ be needed to boot from old floppy disks.
 TODO: check reference to Bochs BIOS.
 ETEXI
 
+DEF("osk", HAS_ARG, QEMU_OPTION_osk,
+           "-osk            set AppleSMC dongle key\n")
+#endif
+STEXI
+@item -osk
+Set the dongle key for Apple's SMC chip that is used to decrypt Mac OS X binaries.
+ETEXI
+
 DEF("no-acpi", 0, QEMU_OPTION_no_acpi,
            "-no-acpi        disable ACPI\n", QEMU_ARCH_I386)
 STEXI

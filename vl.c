@@ -2885,6 +2885,9 @@ int main(int argc, char **argv, char **envp)
                     trace_file = qemu_opt_get(opts, "file");
                 }
                 break;
+            case QEMU_OPTION_osk:
+                applesmc_setkey(optarg);
+                break;
 #endif
             case QEMU_OPTION_readconfig:
                 {

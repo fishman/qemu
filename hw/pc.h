@@ -229,6 +229,10 @@ static inline bool isa_ne2000_init(int base, int irq, NICInfo *nd)
     return true;
 }
 
+/* applesmc.c */
+void applesmc_init(void);
+void applesmc_setkey(char *key);
+
 /* lpc.c */
 void lpc_init(PCIBus *bus, int devfn, qemu_irq *pic);
 

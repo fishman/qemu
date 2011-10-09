@@ -3,9 +3,6 @@
  *
  *  Copyright (c) 2007 Alexander Graf
  *
- *  Authors: Alexander Graf <agraf@suse.de>
- *           Susanne Graf <suse@csgraf.de>
- *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -17,7 +14,8 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * *****************************************************************
  *
@@ -31,44 +29,41 @@
  */
 
 #include "hw.h"
-#include "isa.h"
+#include "pci.h"
 #include "console.h"
 #include "qemu-timer.h"
 
-/* #define DEBUG_SMC */
-
-#define APPLESMC_DEFAULT_IOBASE        0x300
 /* data port used by Apple SMC */
-#define APPLESMC_DATA_PORT             0x0
+#define APPLESMC_DATA_PORT	0x300
 /* command/status port used by Apple SMC */
-#define APPLESMC_CMD_PORT              0x4
-#define APPLESMC_NR_PORTS              32
-#define APPLESMC_MAX_DATA_LENGTH       32
+#define APPLESMC_CMD_PORT	0x304
+#define APPLESMC_NR_PORTS	32 /* 0x300-0x31f */
+#define APPLESMC_MAX_DATA_LENGTH 32
 
-#define APPLESMC_READ_CMD              0x10
-#define APPLESMC_WRITE_CMD             0x11
-#define APPLESMC_GET_KEY_BY_INDEX_CMD  0x12
-#define APPLESMC_GET_KEY_TYPE_CMD      0x13
+#define APPLESMC_READ_CMD	0x10
+#define APPLESMC_WRITE_CMD	0x11
+#define APPLESMC_GET_KEY_BY_INDEX_CMD	0x12
+#define APPLESMC_GET_KEY_TYPE_CMD	0x13
 
-#ifdef DEBUG_SMC
-#define smc_debug(...) fprintf(stderr, "AppleSMC: " __VA_ARGS__)
-#else
-#define smc_debug(...) do { } while(0)
-#endif
-
-static char default_osk[64] = "This is a dummy key. Enter the real key "
-                              "using the -osk parameter";
+static char osk[64] = "This is a dummy key. Enter the real key using the -osk parameter";
 
 struct AppleSMCData {
     uint8_t len;
-    const char *key;
-    const char *data;
-    QLIST_ENTRY(AppleSMCData) node;
+    char *key;
+    char *data;
+};
+
+static struct AppleSMCData data[] = {
+    { .key = "REV ", .len=6, .data="\0x01\0x13\0x0f\0x00\0x00\0x03" },
+    { .key = "OSK0", .len=32, .data=osk },
+    { .key = "OSK1", .len=32, .data=osk+32 },
+    { .key = "NATJ", .len=1, .data="\0" },
+    { .key = "MSSP", .len=1, .data="\0" },
+    { .key = "MSSD", .len=1, .data="\0x3" },
+    { .len=0 }
 };
 
 struct AppleSMCStatus {
-    ISADevice dev;
-    uint32_t iobase;
     uint8_t cmd;
     uint8_t status;
     uint8_t key[4];
@@ -77,15 +72,12 @@ struct AppleSMCStatus {
     uint8_t data_pos;
     uint8_t data[255];
     uint8_t charactic[4];
-    char *osk;
-    QLIST_HEAD(, AppleSMCData) data_def;
 };
 
 static void applesmc_io_cmd_writeb(void *opaque, uint32_t addr, uint32_t val)
 {
-    struct AppleSMCStatus *s = opaque;
-
-    smc_debug("CMD Write B: %#x = %#x\n", addr, val);
+    struct AppleSMCStatus *s = (struct AppleSMCStatus *)opaque;
+    printf("APPLESMC: CMD Write B: %#x = %#x\n", addr, val);
     switch(val) {
         case APPLESMC_READ_CMD:
             s->status = 0x0c;
@@ -99,11 +91,11 @@ static void applesmc_io_cmd_writeb(void *opaque, uint32_t addr, uint32_t val)
 static void applesmc_fill_data(struct AppleSMCStatus *s)
 {
     struct AppleSMCData *d;
-
-    QLIST_FOREACH(d, &s->data_def, node) {
-        if (!memcmp(d->key, s->key, 4)) {
-            smc_debug("Key matched (%s Len=%d Data=%s)\n", d->key,
-                      d->len, d->data);
+    for(d=data; d->len; d++) {
+        uint32_t key_data = *((uint32_t*)d->key);
+        uint32_t key_current = *((uint32_t*)s->key);
+        if(key_data == key_current) {
+            printf("APPLESMC: Key matched (%s Len=%d Data=%s)\n", d->key, d->len, d->data);
             memcpy(s->data, d->data, d->len);
             return;
         }
@@ -112,9 +104,8 @@ static void applesmc_fill_data(struct AppleSMCStatus *s)
 
 static void applesmc_io_data_writeb(void *opaque, uint32_t addr, uint32_t val)
 {
-    struct AppleSMCStatus *s = opaque;
-
-    smc_debug("DATA Write B: %#x = %#x\n", addr, val);
+    struct AppleSMCStatus *s = (struct AppleSMCStatus *)opaque;
+    printf("APPLESMC: DATA Write B: %#x = %#x\n", addr, val);
     switch(s->cmd) {
         case APPLESMC_READ_CMD:
             if(s->read_pos < 4) {
@@ -124,8 +115,7 @@ static void applesmc_io_data_writeb(void *opaque, uint32_t addr, uint32_t val)
                 s->data_len = val;
                 s->status = 0x05;
                 s->data_pos = 0;
-                smc_debug("Key = %c%c%c%c Len = %d\n", s->key[0],
-                          s->key[1], s->key[2], s->key[3], val);
+                printf("APPLESMC: Key = %c%c%c%c Len = %d\n", s->key[0], s->key[1], s->key[2], s->key[3], val);
                 applesmc_fill_data(s);
             }
             s->read_pos++;
@@ -135,107 +125,47 @@ static void applesmc_io_data_writeb(void *opaque, uint32_t addr, uint32_t val)
 
 static uint32_t applesmc_io_data_readb(void *opaque, uint32_t addr1)
 {
-    struct AppleSMCStatus *s = opaque;
+    struct AppleSMCStatus *s = (struct AppleSMCStatus *)opaque;
     uint8_t retval = 0;
-
     switch(s->cmd) {
         case APPLESMC_READ_CMD:
             if(s->data_pos < s->data_len) {
                 retval = s->data[s->data_pos];
-                smc_debug("READ_DATA[%d] = %#hhx\n", s->data_pos,
-                          retval);
+                printf("APPLESMC: READ_DATA[%d] = %#hhx\n", s->data_pos, retval);
                 s->data_pos++;
                 if(s->data_pos == s->data_len) {
                     s->status = 0x00;
-                    smc_debug("EOF\n");
+                    printf("APPLESMC: EOF\n");
                 } else
                     s->status = 0x05;
             }
     }
-    smc_debug("DATA Read b: %#x = %#x\n", addr1, retval);
-
+    printf("APPLESMC: DATA Read b: %#x = %#x\n", addr1, retval);
     return retval;
 }
 
 static uint32_t applesmc_io_cmd_readb(void *opaque, uint32_t addr1)
 {
-    struct AppleSMCStatus *s = opaque;
-
-    smc_debug("CMD Read B: %#x\n", addr1);
-    return s->status;
+    printf("APPLESMC: CMD Read B: %#x\n", addr1);
+    return ((struct AppleSMCStatus*)opaque)->status;
 }
 
-static void applesmc_add_key(struct AppleSMCStatus *s, const char *key,
-                             int len, const char *data)
-{
-    struct AppleSMCData *def;
-
-    def = qemu_mallocz(sizeof(struct AppleSMCData));
-    def->key = key;
-    def->len = len;
-    def->data = data;
-
-    QLIST_INSERT_HEAD(&s->data_def, def, node);
-}
-
-static void qdev_applesmc_isa_reset(DeviceState *dev)
-{
-    struct AppleSMCStatus *s = DO_UPCAST(struct AppleSMCStatus, dev.qdev, dev);
-    struct AppleSMCData *d, *next;
-
-    /* Remove existing entries */
-    QLIST_FOREACH_SAFE(d, &s->data_def, node, next) {
-        QLIST_REMOVE(d, node);
+void applesmc_setkey(char *key) {
+    if(strlen(key) == 64) {
+        memcpy(osk, key, 64);
     }
-
-    applesmc_add_key(s, "REV ", 6, "\x01\x13\x0f\x00\x00\x03");
-    applesmc_add_key(s, "OSK0", 32, s->osk);
-    applesmc_add_key(s, "OSK1", 32, s->osk + 32);
-    applesmc_add_key(s, "NATJ", 1, "\0");
-    applesmc_add_key(s, "MSSP", 1, "\0");
-    applesmc_add_key(s, "MSSD", 1, "\0x3");
 }
 
-static int applesmc_isa_init(ISADevice *dev)
-{
-    struct AppleSMCStatus *s = DO_UPCAST(struct AppleSMCStatus, dev, dev);
+void applesmc_init() {
+    struct ApleSMCStatus *s;
+    s = qemu_mallocz(sizeof(struct AppleSMCStatus));
 
-    register_ioport_read(s->iobase + APPLESMC_DATA_PORT, 4, 1,
-                         applesmc_io_data_readb, s);
-    register_ioport_read(s->iobase + APPLESMC_CMD_PORT, 4, 1,
-                         applesmc_io_cmd_readb, s);
-    register_ioport_write(s->iobase + APPLESMC_DATA_PORT, 4, 1,
-                          applesmc_io_data_writeb, s);
-    register_ioport_write(s->iobase + APPLESMC_CMD_PORT, 4, 1,
-                          applesmc_io_cmd_writeb, s);
-
-    if (!s->osk || (strlen(s->osk) != 64)) {
-        fprintf(stderr, "WARNING: Using AppleSMC with invalid key\n");
-        s->osk = default_osk;
+    if(osk[0] == 'T') {
+        printf("WARNING: Using AppleSMC with invalid key\n");
     }
-
-    QLIST_INIT(&s->data_def);
-    qdev_applesmc_isa_reset(&dev->qdev);
-
-    return 0;
+    register_ioport_read(APPLESMC_DATA_PORT, 4, 1, applesmc_io_data_readb, s);
+    register_ioport_read(APPLESMC_CMD_PORT, 4, 1, applesmc_io_cmd_readb, s);
+    register_ioport_write(APPLESMC_DATA_PORT, 4, 1, applesmc_io_data_writeb, s);
+    register_ioport_write(APPLESMC_CMD_PORT, 4, 1, applesmc_io_cmd_writeb, s);
 }
 
-static ISADeviceInfo applesmc_isa_info = {
-    .qdev.name  = "isa-applesmc",
-    .qdev.size  = sizeof(struct AppleSMCStatus),
-    .qdev.reset = qdev_applesmc_isa_reset,
-    .init       = applesmc_isa_init,
-    .qdev.props = (Property[]) {
-        DEFINE_PROP_HEX32("iobase", struct AppleSMCStatus, iobase,
-                          APPLESMC_DEFAULT_IOBASE),
-        DEFINE_PROP_STRING("osk", struct AppleSMCStatus, osk),
-        DEFINE_PROP_END_OF_LIST(),
-    },
-};
-
-static void applesmc_register_devices(void)
-{
-    isa_qdev_register(&applesmc_isa_info);
-}
-
-device_init(applesmc_register_devices)
