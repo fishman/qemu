@@ -98,12 +98,6 @@ void isa_irq_handler(void *opaque, int n, int level)
         qemu_set_irq(isa->ioapic[n], level);
 };
 
-enum pc_model {
-    MODEL_ISA = 0,
-    MODEL_PCI = 1,
-    MODEL_MAC = 2
-};
-
 static void ioport80_write(void *opaque, uint32_t addr, uint32_t data)
 {
 }
@@ -945,7 +939,7 @@ static CPUState *pc_new_cpu(const char *cpu_model)
     return env;
 }
 
-void pc_cpus_init(const char *cpu_model)
+void pc_cpus_init(const char *cpu_model, int model)
 {
     int i;
 
@@ -967,7 +961,8 @@ void pc_cpus_init(const char *cpu_model)
     }
 }
 
-void pc_memory_init(const char *kernel_filename,
+void pc_memory_init(int model,
+                    const char *kernel_filename,
                     const char *kernel_cmdline,
                     const char *initrd_filename,
                     ram_addr_t below_4g_mem_size,

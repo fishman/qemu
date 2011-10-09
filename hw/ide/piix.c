@@ -154,9 +154,6 @@ static int pci_ich6_ide_initfn(PCIDevice *dev)
     uint8_t *pci_conf;
     PCIIDEState *d = DO_UPCAST(PCIIDEState, dev, dev);
 
-    pci_config_set_vendor_id(d->dev.config, PCI_VENDOR_ID_INTEL);
-    pci_config_set_device_id(d->dev.config, PCI_DEVICE_ID_INTEL_ICH6);
-
     pci_conf = d->dev.config;
 
     pci_conf[0x09] = 0x80; // legacy ATA mode
@@ -196,12 +193,13 @@ PCIDevice *pci_piix4_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
 
 /* hd_table must contain 4 block drivers */
 /* NOTE: for the ICH6, the IRQs and IOports are hardcoded */
-void pci_ich6_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
+PCIDevice *pci_ich6_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn)
 {
     PCIDevice *dev;
 
     dev = pci_create_simple(bus, devfn, "ICH6 IDE");
     pci_ide_create_devs(dev, hd_table);
+    return dev;
 }
 
 static PCIDeviceInfo piix_ide_info[] = {
@@ -228,6 +226,9 @@ static PCIDeviceInfo piix_ide_info[] = {
         .qdev.size    = sizeof(PCIIDEState),
         .qdev.no_user = 1,
         .init         = pci_ich6_ide_initfn,
+        .vendor_id    = PCI_VENDOR_ID_INTEL,
+        .device_id    = PCI_DEVICE_ID_INTEL_ICH6,
+        .class_id     = PCI_CLASS_STORAGE_IDE,
     },{
         /* end of list */
     }

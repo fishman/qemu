@@ -15,7 +15,7 @@ void pci_cmd646_ide_init(PCIBus *bus, DriveInfo **hd_table,
                          int secondary_ide_enabled);
 PCIDevice *pci_piix3_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn);
 PCIDevice *pci_piix4_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn);
-void pci_ich6_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn);
+PCIDevice *pci_ich6_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn);
 void vt82c686b_ide_init(PCIBus *bus, DriveInfo **hd_table, int devfn);
 
 /* ide-macio.c */

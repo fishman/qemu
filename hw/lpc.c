@@ -25,6 +25,7 @@
  *
  */
 #include "hw.h"
+#include "pc.h"
 #include "pci.h"
 #include "console.h"
 
@@ -106,7 +107,8 @@ void lpc_init(PCIBus *bus, int devfn, qemu_irq *pic) {
 
     /* RCBA Area */
 
-    iomemtype = cpu_register_io_memory(rcba_ram_read, rcba_ram_write, d);
+    iomemtype = cpu_register_io_memory(rcba_ram_read, rcba_ram_write, d,
+                                       DEVICE_LITTLE_ENDIAN);
 
     cpu_register_physical_memory(RCBA_BASE, 0x4000, iomemtype);
 #if 0

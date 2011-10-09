@@ -128,8 +128,9 @@ void pc_register_ferr_irq(qemu_irq irq);
 void pc_cmos_set_s3_resume(void *opaque, int irq, int level);
 void pc_acpi_smi_interrupt(void *opaque, int irq, int level);
 
-void pc_cpus_init(const char *cpu_model);
-void pc_memory_init(const char *kernel_filename,
+void pc_cpus_init(const char *cpu_model, int model);
+void pc_memory_init(int model,
+                    const char *kernel_filename,
                     const char *kernel_cmdline,
                     const char *initrd_filename,
                     ram_addr_t below_4g_mem_size,
@@ -245,4 +246,9 @@ void lpc_init(PCIBus *bus, int devfn, qemu_irq *pic);
 
 int e820_add_entry(uint64_t, uint64_t, uint32_t);
 
+enum pc_model {
+    MODEL_ISA = 0,
+    MODEL_PCI = 1,
+    MODEL_MAC = 2
+};
 #endif

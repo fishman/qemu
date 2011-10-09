@@ -90,7 +90,7 @@ static void pc_init1(ram_addr_t ram_size,
     BusState *idebus[MAX_IDE_BUS];
     ISADevice *rtc_state;
 
-    pc_cpus_init(cpu_model);
+    pc_cpus_init(cpu_model, model);
 
     if (kvmclock_enabled) {
         kvmclock_create();
@@ -106,7 +106,7 @@ static void pc_init1(ram_addr_t ram_size,
 
     /* allocate ram and load rom/bios */
     if (!xen_enabled()) {
-        pc_memory_init(kernel_filename, kernel_cmdline, initrd_filename,
+        pc_memory_init(model, kernel_filename, kernel_cmdline, initrd_filename,
                        below_4g_mem_size, above_4g_mem_size);
     }
 
@@ -150,7 +150,7 @@ static void pc_init1(ram_addr_t ram_size,
     for(i = 0; i < nb_nics; i++) {
         NICInfo *nd = &nd_table[i];
 
-        if (!(model > MODEL_ISA) || (nd->model && strcmp(nd->model, "ne2k_isa") == 0))
+        if (!(model > MODEL_ISA) || (nd->model && strcmp(nd->model, "ne2k_isa") == 0)) {
             pc_init_ne2k_isa(nd);
         } else if (model == MODEL_MAC) {
             nd->link = Link_10mbps;
