@@ -1031,8 +1031,7 @@ TODO: check reference to Bochs BIOS.
 ETEXI
 
 DEF("osk", HAS_ARG, QEMU_OPTION_osk,
-           "-osk            set AppleSMC dongle key\n")
-#endif
+           "-osk            set AppleSMC dongle key\n", QEMU_ARCH_I386)
 STEXI
 @item -osk
 Set the dongle key for Apple's SMC chip that is used to decrypt Mac OS X binaries.

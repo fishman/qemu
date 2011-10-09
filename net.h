@@ -145,6 +145,7 @@ struct NICInfo {
     VLANState *vlan;
     VLANClientState *netdev;
     int used;         /* is this slot in nd_table[] being used? */
+    enum NICLink link;
     int instantiated; /* does this NICInfo correspond to an instantiated NIC? */
     int nvectors;
 };
