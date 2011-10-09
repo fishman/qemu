@@ -229,6 +229,9 @@ static inline bool isa_ne2000_init(int base, int irq, NICInfo *nd)
     return true;
 }
 
+/* lpc.c */
+void lpc_init(PCIBus *bus, int devfn, qemu_irq *pic);
+
 /* e820 types */
 #define E820_RAM        1
 #define E820_RESERVED   2
